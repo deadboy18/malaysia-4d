@@ -1,5 +1,8 @@
 # malaysia-4d
 
+
+**[Live Dashboard](https://deadboy18.github.io/malaysia-4d/)** | [Documentation](#table-of-contents)
+
 Historical draw data and statistical analysis for Malaysia's three major 4D lottery operators: **Sport Toto**, **Magnum 4D**, and **Da Ma Cai**.
 
 Scrapers that collect publicly available draw results, a Flask-based analytics API, and an interactive dashboard for exploring the data. Over **15,900 draws** and **367,000 winning numbers** spanning four decades — the most complete publicly available 4D dataset for Malaysia.
