@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deadboy4D Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── Theme Variables ──────────────────────────────────────── */
+:root {
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --transition: 0.18s ease;
+}
+[data-theme="dark"] {
+  --bg: #0a0a0c; --surface: #111114; --card: #18181c;
+  --border: #27272c; --border2: #1f1f24;
+  --text: #e8e8ec; --text2: #8c8c96; --text3: #55555e;
+  --accent: #e03e3e; --accent2: #ff5555; --accent-bg: rgba(224,62,62,0.08);
+  --green: #22c55e; --green-bg: rgba(34,197,94,0.1);
+  --blue: #60a5fa; --blue-bg: rgba(96,165,250,0.1);
+  --gold: #f59e0b; --gold-bg: rgba(245,158,11,0.1);
+  --chart-grid: rgba(255,255,255,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+[data-theme="light"] {
+  --bg: #f4f4f7; --surface: #ffffff; --card: #ffffff;
+  --border: #e2e2e8; --border2: #ebebf0;
+  --text: #1a1a2e; --text2: #6b6b80; --text3: #9999aa;
+  --accent: #cc0000; --accent2: #e03030; --accent-bg: rgba(204,0,0,0.06);
+  --green: #16a34a; --green-bg: rgba(22,163,74,0.08);
+  --blue: #2563eb; --blue-bg: rgba(37,99,235,0.08);
+  --gold: #d97706; --gold-bg: rgba(217,119,6,0.08);
+  --chart-grid: rgba(0,0,0,0.05);
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ── Reset & Base ─────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: background var(--transition), color var(--transition); }
+::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Header ───────────────────────────────────────────────── */
+#header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; transition: background var(--transition); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 11px; font-family: var(--font-mono); letter-spacing: -0.5px; }
+.brand-name { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+.brand-name span { color: var(--accent); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+#status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+#status-dot.ok { background: var(--green); }
+#status-text { font-size: 12px; color: var(--text2); }
+
+/* Theme toggle */
+.theme-btn { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; cursor: pointer; font-size: 12px; color: var(--text2); transition: all var(--transition); }
+.theme-btn:hover { border-color: var(--text3); color: var(--text); }
+
+/* ── Layout ───────────────────────────────────────────────── */
+#layout { display: flex; flex: 1; overflow: hidden; }
+#sidebar { width: 180px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; transition: background var(--transition); }
+.nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); padding: 16px 18px 6px; font-weight: 600; }
+.nav-item { padding: 8px 18px; cursor: pointer; font-size: 13px; color: var(--text2); border-left: 2.5px solid transparent; transition: all var(--transition); user-select: none; }
+.nav-item:hover { color: var(--text); background: var(--accent-bg); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-bg); font-weight: 500; }
+#main { flex: 1; overflow-y: auto; padding: 20px 28px; }
+.section { display: none; } .section.active { display: block; }
+
+/* ── Operator Tabs ────────────────────────────────────────── */
+.op-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+.op-tab { padding: 7px 16px; border-radius: 8px; border: 1.5px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; font-family: var(--font-body); transition: all var(--transition); }
+.op-tab:hover { border-color: var(--text3); color: var(--text); }
+.op-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.op-tab .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+.op-tab .dot.toto { background: #CC0000; } .op-tab .dot.magnum { background: #FFD700; } .op-tab .dot.damacai { background: #0066CC; }
+.op-tab.disabled { opacity: 0.4; cursor: default; }
+
+/* ── Cards ────────────────────────────────────────────────── */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); transition: background var(--transition), border var(--transition); }
+.card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 4px; font-weight: 600; }
+.card-value { font-size: 24px; font-weight: 600; font-family: var(--font-mono); }
+.card-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.card.red .card-value { color: var(--accent2); } .card.green .card-value { color: var(--green); }
+.card.blue .card-value { color: var(--blue); } .card.gold .card-value { color: var(--gold); }
+
+/* ── Panels ───────────────────────────────────────────────── */
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow); transition: background var(--transition), border var(--transition); }
+.panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 14px; }
+.panel-title span { color: var(--text); }
+
+/* ── Pills ────────────────────────────────────────────────── */
+.pills { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+.pill { padding: 4px 11px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-size: 12px; font-family: var(--font-body); transition: all var(--transition); }
+.pill:hover { color: var(--text); border-color: var(--text3); }
+.pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+/* ── Table ────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text3); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--border2); font-family: var(--font-mono); font-size: 12px; }
+tr:hover td { background: var(--accent-bg); }
+.bar-inline { height: 5px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.tier-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+.tier-badge.p1 { background: var(--accent-bg); color: var(--accent2); }
+.tier-badge.sp { background: var(--gold-bg); color: var(--gold); }
+.tier-badge.co { background: var(--blue-bg); color: var(--blue); }
+.tier-badge.p2 { background: var(--green-bg); color: var(--green); }
+.tier-badge.p3 { background: rgba(134,239,172,0.1); color: #86efac; }
+
+/* ── Inputs & Buttons ─────────────────────────────────────── */
+input[type=text], input[type=number], select { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; font-family: var(--font-body); outline: none; transition: border var(--transition); }
+input:focus, select:focus { border-color: var(--accent); }
+button { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 8px 14px; cursor: pointer; font-size: 13px; font-family: var(--font-body); transition: all var(--transition); }
+button:hover { border-color: var(--text3); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover { opacity: 0.9; }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Scraper log ──────────────────────────────────────────── */
+#scrape-log { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text2); height: 200px; overflow-y: auto; white-space: pre-wrap; }
+
+/* ── Tier bars ────────────────────────────────────────────── */
+.tier-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tier-bar-label { width: 90px; font-size: 12px; color: var(--text2); }
+.tier-bar-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.tier-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+.tier-bar-val { width: 28px; text-align: right; font-family: var(--font-mono); font-size: 12px; }
+
+/* ── Grid helpers ─────────────────────────────────────────── */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } .grid4 { grid-template-columns: 1fr 1fr; } }
+
+/* ── No data state ────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text3); }
+.empty-state h3 { font-size: 16px; color: var(--text2); margin-bottom: 8px; }
+.empty-state p { font-size: 13px; max-width: 400px; margin: 0 auto; line-height: 1.6; }
+
+/* ── Spinner ──────────────────────────────────────────────── */
+.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 5px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body data-theme="dark">
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<div id="header">
+  <div class="brand">
+    <div class="brand-icon">4D</div>
+    <div class="brand-name"><span>Deadboy</span>4D Analytics</div>
+  </div>
+  <div class="header-right">
+    <span id="status-dot"></span>
+    <span id="status-text">Connecting...</span>
+    <button class="theme-btn" onclick="toggleTheme()">Light / Dark</button>
+    <button onclick="exportCSV()" style="font-size:12px">Export CSV</button>
+  </div>
+</div>
+
+<!-- ── LAYOUT ─────────────────────────────────────────────── -->
+<div id="layout">
+  <nav id="sidebar">
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active" data-section="home">Home</div>
+    <div class="nav-label">Analysis</div>
+    <div class="nav-item" data-section="hotcold">Hot / Cold</div>
+    <div class="nav-item" data-section="digits">Digit Positions</div>
+    <div class="nav-item" data-section="gaps">Gap Analysis</div>
+    <div class="nav-item" data-section="patterns">Patterns</div>
+    <div class="nav-label">Tools</div>
+    <div class="nav-item" data-section="lookup">Number Lookup</div>
+    <div class="nav-item" data-section="compare">Compare</div>
+    <div class="nav-item" data-section="scraper">Scraper</div>
+  </nav>
+
+  <div id="main">
+
+    <!-- ── HOME ──────────────────────────────────────────── -->
+    <div id="home" class="section active">
+      <div class="op-tabs" id="home-op-tabs"></div>
+      <div class="cards" id="home-cards"></div>
+      <div class="panel">
+        <div class="panel-title">Top 20 numbers - <span id="home-chart-label">All tiers</span></div>
+        <div style="height:300px"><canvas id="home-chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Quick start</div>
+        <p style="color:var(--text2);font-size:13px;line-height:1.7">
+          1. Go to <b style="color:var(--text)">Scraper</b> to pull data from lottery sites.<br>
+          2. Use the operator tabs above to switch between Sport Toto, Magnum, and Da Ma Cai.<br>
+          3. Explore <b style="color:var(--text)">Hot / Cold</b>, <b style="color:var(--text)">Digit Positions</b>, and <b style="color:var(--text)">Gap Analysis</b>.<br>
+          4. Use <b style="color:var(--text)">Compare</b> to see cross-operator patterns.<br>
+          5. Export your dataset any time with the Export CSV button.
+        </p>
+      </div>
+    </div>
+
+    <!-- ── HOT / COLD ────────────────────────────────────── -->
+    <div id="hotcold" class="section">
+      <div class="op-tabs" id="hc-op-tabs"></div>
+      <div class="pills" id="tier-pills"></div>
+      <div class="grid2">
+        <div class="panel"><div class="panel-title">Top 30 hottest</div><div style="height:640px"><canvas id="hot-chart"></canvas></div></div>
+        <div class="panel"><div class="panel-title">30 coldest</div><div style="height:640px"><canvas id="cold-chart"></canvas></div></div>
+      </div>
+      <div class="panel"><div class="panel-title">Frequency distribution</div><div style="height:180px"><canvas id="freq-dist-chart"></canvas></div></div>
+    </div>
+
+    <!-- ── DIGITS ────────────────────────────────────────── -->
+    <div id="digits" class="section">
+      <div class="op-tabs" id="dg-op-tabs"></div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Digit frequency at each position across all prize tiers. Red = most common.</p>
+      <div class="grid4" id="digit-charts">
+        <div class="panel"><div class="panel-title">Pos 1 - Thousands</div><div style="height:150px"><canvas id="dp0"></canvas></div><div class="card-sub" id="dp0-note" style="margin-top:6px;font-size:11px"></div></div>
+        <div class="panel"><div class="panel-title">Pos 2 - Hundreds</div><div style="height:150px"><canvas id="dp1"></canvas></div><div class="card-sub" id="dp1-note" style="margin-top:6px;font-size:11px"></div></div>
+        <div class="panel"><div class="panel-title">Pos 3 - Tens</div><div style="height:150px"><canvas id="dp2"></canvas></div><div class="card-sub" id="dp2-note" style="margin-top:6px;font-size:11px"></div></div>
+        <div class="panel"><div class="panel-title">Pos 4 - Units</div><div style="height:150px"><canvas id="dp3"></canvas></div><div class="card-sub" id="dp3-note" style="margin-top:6px;font-size:11px"></div></div>
+      </div>
+      <div class="panel"><div class="panel-title">Summary</div><table><thead><tr><th>Position</th><th>Most common</th><th>Count</th><th>Least common</th><th>Count</th><th>Range</th></tr></thead><tbody id="digit-table"></tbody></table></div>
+    </div>
+
+    <!-- ── GAPS ──────────────────────────────────────────── -->
+    <div id="gaps" class="section">
+      <div class="op-tabs" id="gp-op-tabs"></div>
+      <div class="cards" id="gap-cards"></div>
+      <div class="panel"><div class="panel-title">Top 40 most overdue</div><div style="height:820px"><canvas id="gap-chart"></canvas></div></div>
+      <div class="panel"><div class="panel-title">Full overdue table</div><table><thead><tr><th>Number</th><th>Gap</th><th>Total</th><th>1st</th><th>Special</th><th>Consol.</th></tr></thead><tbody id="gap-table"></tbody></table></div>
+    </div>
+
+    <!-- ── PATTERNS ──────────────────────────────────────── -->
+    <div id="patterns" class="section">
+      <div class="op-tabs" id="pt-op-tabs"></div>
+      <div class="grid2">
+        <div class="panel"><div class="panel-title">Pattern type - <span>all tiers</span></div><div style="height:250px"><canvas id="pat-all-chart"></canvas></div></div>
+        <div class="panel"><div class="panel-title">Pattern type - <span>1st prize only</span></div><div style="height:250px"><canvas id="pat-1st-chart"></canvas></div></div>
+      </div>
+      <div class="panel"><div class="panel-title">Day-of-week top 10</div><div id="weekday-panel" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px"></div></div>
+    </div>
+
+    <!-- ── LOOKUP ────────────────────────────────────────── -->
+    <div id="lookup" class="section">
+      <div class="op-tabs" id="lu-op-tabs"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
+        <input type="text" id="lookup-input" maxlength="4" placeholder="1234" style="width:110px;font-family:var(--font-mono);font-size:20px;text-align:center;letter-spacing:0.15em" oninput="if(this.value.length===4&&/^\d{4}$/.test(this.value))doLookup()">
+        <button class="primary" onclick="doLookup()">Search</button>
+        <span style="font-size:12px;color:var(--text2)">Enter any 4-digit number (0000-9999)</span>
+      </div>
+      <div id="lookup-result"></div>
+    </div>
+
+    <!-- ── COMPARE ───────────────────────────────────────── -->
+    <div id="compare" class="section">
+      <div class="panel"><div class="panel-title">Cross-operator comparison</div><div id="compare-content"><div class="empty-state"><h3>Load data from multiple operators</h3><p>Scrape Sport Toto, Magnum, and Da Ma Cai data to see cross-operator comparisons here.</p></div></div></div>
+    </div>
+
+    <!-- ── SCRAPER ───────────────────────────────────────── -->
+    <div id="scraper" class="section">
+      <div class="panel">
+        <div class="panel-title">Data status</div>
+        <div id="scraper-data-status" style="margin-bottom:16px"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Scrape new data</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Operator</div>
+            <select id="sc-op" style="width:150px" onchange="onScraperOpChange()"><option value="sportstoto">Sport Toto</option><option value="magnum">Magnum 4D</option><option value="damacai">Da Ma Cai</option></select></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">From year</div><input type="number" id="sc-from" value="2015" min="1985" max="2030" style="width:80px"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">To year</div><input type="number" id="sc-to" value="2026" min="1985" max="2030" style="width:80px"></div>
+          <button class="primary" id="sc-btn" onclick="startScrape(false)">Scrape range</button>
+          <button id="sc-update-btn" onclick="startScrape(true)">Update only</button>
+        </div>
+        <div id="sc-year-hint" style="font-size:11px;color:var(--gold);margin-bottom:10px"></div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Sport Toto: ~2 min/year | Magnum: ~3 min total | Damacai: ~35 min total</div>
+        <div id="scrape-log">Waiting for scrape to start...</div>
+        <div id="scrape-status" style="font-size:12px;color:var(--text2);margin-top:8px"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const BASE = 'http://localhost:8080';
+let charts = {};
+let currentOp = 'sportstoto';
+let currentTier = 'total';
+let operators = {};
+
+function $$(id) { return document.getElementById(id); }
+function api(path) { return fetch(BASE + path).then(r => r.json()); }
+function mkChart(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($$(id), cfg); return charts[id]; }
+
+/* ── Theme ──────────────────────────────────────────────── */
+function toggleTheme() {
+  const t = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+  Object.values(charts).forEach(c => c.update());
+}
+(function() { const t = localStorage.getItem('theme'); if (t) document.body.setAttribute('data-theme', t); })();
+
+/* ── Navigation ─────────────────────────────────────────── */
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    const sec = el.dataset.section;
+    $$(sec).classList.add('active');
+    if (sec === 'hotcold') loadHotCold();
+    if (sec === 'digits') loadDigits();
+    if (sec === 'gaps') loadGaps();
+    if (sec === 'patterns') loadPatterns();
+    if (sec === 'compare') loadCompare();
+  });
+});
+
+/* ── Operator tabs ──────────────────────────────────────── */
+function renderOpTabs(containerId, onChange) {
+  const el = $$(containerId); if (!el) return;
+  el.innerHTML = '';
+  for (const [key, op] of Object.entries(operators)) {
+    const btn = document.createElement('button');
+    const cls = key === 'sportstoto' ? 'toto' : key === 'magnum' ? 'magnum' : 'damacai';
+    btn.className = `op-tab${key === currentOp ? ' active' : ''}${!op.has_data ? ' disabled' : ''}`;
+    btn.innerHTML = `<span class="dot ${cls}"></span>${op.name}${op.draws > 0 ? ` (${op.draws.toLocaleString()})` : ''}`;
+    if (op.has_data) {
+      btn.onclick = () => { currentOp = key; document.querySelectorAll('.op-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll(`.op-tab`).forEach(t => { if (t.textContent.includes(op.name)) t.classList.add('active'); });
+        if (onChange) onChange(); };
+    }
+    el.appendChild(btn);
+  }
+}
+
+function renderAllOpTabs(fn) { ['home-op-tabs','hc-op-tabs','dg-op-tabs','gp-op-tabs','pt-op-tabs','lu-op-tabs'].forEach(id => renderOpTabs(id, fn)); }
+
+/* ── Status polling ─────────────────────────────────────── */
+async function refreshStatus() {
+  try {
+    operators = await api('/api/operators');
+    const opData = operators[currentOp];
+    const dot = $$('status-dot');
+    if (opData && opData.has_data) {
+      dot.className = 'ok';
+      $$('status-text').textContent = `${opData.draws.toLocaleString()} ${opData.name} draws`;
+    } else {
+      dot.className = '';
+      $$('status-text').textContent = 'No data';
+    }
+    renderAllOpTabs(loadCurrentSection);
+    renderScraperDataStatus();
+    onScraperOpChange();
+    loadHome();
+  } catch(e) {
+    $$('status-dot').className = '';
+    $$('status-text').textContent = 'Server offline';
+  }
+}
+setInterval(refreshStatus, 10000);
+refreshStatus();
+
+function loadCurrentSection() {
+  const active = document.querySelector('.nav-item.active');
+  if (!active) return;
+  const sec = active.dataset.section;
+  if (sec === 'home') loadHome();
+  if (sec === 'hotcold') loadHotCold();
+  if (sec === 'digits') loadDigits();
+  if (sec === 'gaps') loadGaps();
+  if (sec === 'patterns') loadPatterns();
+  if (sec === 'lookup') { $$('lookup-result').innerHTML = ''; }
+}
+
+/* ── Home ───────────────────────────────────────────────── */
+async function loadHome() {
+  try {
+    const d = await api(`/api/${currentOp}/status`);
+    if (!d.loaded) {
+      $$('home-cards').innerHTML = `<div class="card"><div class="card-label">Status</div><div class="card-value" style="font-size:16px">No data</div><div class="card-sub">Go to Scraper tab</div></div>`;
+      return;
+    }
+    $$('home-cards').innerHTML = `
+      <div class="card"><div class="card-label">Status</div><div class="card-value" style="font-size:16px">Ready</div><div class="card-sub">${d.date_from} -> ${d.date_to}</div></div>
+      <div class="card green"><div class="card-label">Total draws</div><div class="card-value">${d.draws.toLocaleString()}</div><div class="card-sub">#${d.draw_from} -> #${d.draw_to}</div></div>
+      <div class="card blue"><div class="card-label">Unique numbers</div><div class="card-value">${d.unique.toLocaleString()}</div><div class="card-sub">${d.coverage}% of 10,000</div></div>
+      <div class="card gold"><div class="card-label">Expected freq</div><div class="card-value">${d.expected}</div><div class="card-sub">per number (uniform)</div></div>
+      <div class="card red"><div class="card-label">Total drawn</div><div class="card-value">${d.numbers.toLocaleString()}</div><div class="card-sub">23 per draw</div></div>`;
+    const f = await api(`/api/${currentOp}/frequency?tier=total`);
+    if (!f.top) return;
+    $$('home-chart-label').textContent = operators[currentOp]?.name || currentOp;
+    const top20 = f.top.slice(0, 20);
+    const accentColor = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+    mkChart('home-chart', { type: 'bar', data: { labels: top20.map(x => x.num), datasets: [{ data: top20.map(x => x.count), backgroundColor: top20.map((_, i) => i < 3 ? accentColor : i < 8 ? accentColor + '99' : accentColor + '44'), borderWidth: 0, borderRadius: 3 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'var(--chart-grid)' } }, y: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } } } } });
+  } catch(e) {}
+}
+
+/* ── Hot / Cold ─────────────────────────────────────────── */
+function renderTierPills() {
+  const labels = { total: 'All tiers', p1: '1st Prize', p2: '2nd Prize', p3: '3rd Prize', sp: 'Special', co: 'Consolation' };
+  $$('tier-pills').innerHTML = Object.entries(labels).map(([k, v]) =>
+    `<button class="pill${k === currentTier ? ' active' : ''}" onclick="currentTier='${k}';renderTierPills();loadHotCold()">${v}</button>`
+  ).join('');
+}
+renderTierPills();
+
+async function loadHotCold() {
+  try {
+    const d = await api(`/api/${currentOp}/frequency?tier=${currentTier}`);
+    if (!d.top) return;
+    const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+    const bl = getComputedStyle(document.body).getPropertyValue('--blue').trim();
+    const barOpts = () => ({ responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } }, y: { ticks: { color: 'var(--text2)', font: { family: 'JetBrains Mono', size: 10 } }, grid: { display: false } } } });
+    mkChart('hot-chart', { type: 'bar', data: { labels: d.top.slice(0, 30).reverse().map(x => x.num), datasets: [{ data: d.top.slice(0, 30).reverse().map(x => x.count), backgroundColor: ac + 'bb', borderWidth: 0, borderRadius: [0, 3, 3, 0] }] }, options: barOpts() });
+    mkChart('cold-chart', { type: 'bar', data: { labels: d.bottom.slice(0, 30).reverse().map(x => x.num), datasets: [{ data: d.bottom.slice(0, 30).reverse().map(x => x.count), backgroundColor: bl + 'bb', borderWidth: 0, borderRadius: [0, 3, 3, 0] }] }, options: barOpts() });
+    const allC = d.top.map(x => x.count).concat(d.bottom.map(x => x.count)); const mx = Math.max(...allC); const bins = 25; const hist = Array(bins).fill(0);
+    allC.forEach(c => { const b = Math.min(Math.floor((c / mx) * bins), bins - 1); hist[b]++; });
+    mkChart('freq-dist-chart', { type: 'bar', data: { labels: Array.from({ length: bins }, (_, i) => Math.round(i * mx / bins)), datasets: [{ data: hist, backgroundColor: ac + '88', borderWidth: 0, borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', maxTicksLimit: 10 }, grid: { display: false } }, y: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } } } } });
+  } catch(e) {}
+}
+
+/* ── Digits ─────────────────────────────────────────────── */
+async function loadDigits() {
+  try {
+    const d = await api(`/api/${currentOp}/digits`);
+    if (!d.positions) return;
+    const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+    d.positions.forEach((pos, pi) => {
+      const mx = Math.max(...pos); const mn = Math.min(...pos.filter(v => v > 0));
+      mkChart(`dp${pi}`, { type: 'bar', data: { labels: ['0','1','2','3','4','5','6','7','8','9'], datasets: [{ data: pos, backgroundColor: pos.map(v => v === mx ? ac : 'var(--border)'), borderWidth: 0, borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: 'var(--text3)', font: { size: 9 } }, grid: { color: 'var(--chart-grid)' } } } } });
+      $$(`dp${pi}-note`).textContent = `Most: digit ${pos.indexOf(mx)} (${mx.toLocaleString()})`;
+    });
+    const tbody = $$('digit-table'); tbody.innerHTML = '';
+    const names = ['Thousands', 'Hundreds', 'Tens', 'Units'];
+    d.positions.forEach((pos, pi) => {
+      const mx = Math.max(...pos), mn = Math.min(...pos.filter(v => v > 0));
+      tbody.innerHTML += `<tr><td style="color:var(--text2)">${pi + 1} (${names[pi]})</td><td style="color:var(--accent);font-weight:600">${pos.indexOf(mx)}</td><td>${mx.toLocaleString()}</td><td style="color:var(--blue);font-weight:600">${pos.indexOf(mn)}</td><td>${mn.toLocaleString()}</td><td>${(mx - mn).toLocaleString()}</td></tr>`;
+    });
+  } catch(e) {}
+}
+
+/* ── Gaps ───────────────────────────────────────────────── */
+async function loadGaps() {
+  try {
+    const d = await api(`/api/${currentOp}/gaps`);
+    if (!d.overdue) return;
+    $$('gap-cards').innerHTML = `
+      <div class="card gold"><div class="card-label">Median gap</div><div class="card-value">${d.gap_median}</div><div class="card-sub">draws between appearances</div></div>
+      <div class="card"><div class="card-label">Mean gap</div><div class="card-value">${d.gap_mean}</div></div>
+      <div class="card red"><div class="card-label">Overdue 100+</div><div class="card-value">${d.overdue_100.toLocaleString()}</div></div>
+      <div class="card"><div class="card-label">Never drawn</div><div class="card-value">${d.never_drawn.toLocaleString()}</div><div class="card-sub">of 10,000 possible</div></div>`;
+    const top40 = d.overdue.slice(0, 40).reverse();
+    const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+    const gl = getComputedStyle(document.body).getPropertyValue('--gold').trim();
+    const bl = getComputedStyle(document.body).getPropertyValue('--blue').trim();
+    mkChart('gap-chart', { type: 'bar', data: { labels: top40.map(x => x.num), datasets: [{ data: top40.map(x => x.gap), backgroundColor: top40.map(x => x.gap > 100 ? ac : x.gap > 60 ? gl : bl), borderWidth: 0, borderRadius: [0, 3, 3, 0] }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } }, y: { ticks: { color: 'var(--text2)', font: { family: 'JetBrains Mono', size: 10 } }, grid: { display: false } } } } });
+    const tbody = $$('gap-table'); tbody.innerHTML = '';
+    d.overdue.slice(0, 50).forEach(r => {
+      const barW = Math.min(Math.round((r.gap / (d.overdue[0].gap || 1)) * 80), 80);
+      tbody.innerHTML += `<tr><td style="font-weight:600">${r.num}</td><td><span class="bar-inline" style="width:${barW}px;background:${r.gap > 100 ? 'var(--accent)' : 'var(--gold)'}"></span>${r.gap}</td><td>${r.total}</td><td><span class="tier-badge p1">${r.p1 || 0}</span></td><td><span class="tier-badge sp">${r.sp || 0}</span></td><td><span class="tier-badge co">${r.co || 0}</span></td></tr>`;
+    });
+  } catch(e) {}
+}
+
+/* ── Patterns ───────────────────────────────────────────── */
+async function loadPatterns() {
+  try {
+    const d = await api(`/api/${currentOp}/patterns`);
+    if (!d.all) return;
+    const labels = { quad: 'Quad', ascending: 'Ascending', descending: 'Descending', palindrome: 'Palindrome', two_digit: 'Two digits', three_digit: 'Three digits', all_diff: 'All different' };
+    const colors = ['#e03e3e', '#d97706', '#16a34a', '#2563eb', '#7c3aed', '#a8a29e', '#525252'];
+    const mkPat = (id, data) => { const keys = Object.keys(labels); mkChart(id, { type: 'bar', data: { labels: keys.map(k => labels[k]), datasets: [{ data: keys.map(k => data[k] || 0), backgroundColor: colors, borderWidth: 0, borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', font: { size: 10 }, maxRotation: 30 }, grid: { display: false } }, y: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } } } } }); };
+    mkPat('pat-all-chart', d.all); mkPat('pat-1st-chart', d['1st']);
+    const wp = $$('weekday-panel'); wp.innerHTML = '';
+    for (const day of ['Wednesday', 'Saturday', 'Sunday']) {
+      const wd = d.weekdays[day]; if (!wd) continue;
+      wp.innerHTML += `<div><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">${day} <span style="color:var(--text3);font-weight:400">(${wd.draws})</span></div>` +
+        wd.top10.map((x, i) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border2);font-family:var(--font-mono);font-size:12px"><span style="color:${i === 0 ? 'var(--accent)' : 'var(--text)'}">${x.num}</span><span style="color:var(--text3)">${x.count}x</span></div>`).join('') + '</div>';
+    }
+  } catch(e) {}
+}
+
+/* ── Lookup ─────────────────────────────────────────────── */
+async function doLookup() {
+  const num = $$('lookup-input').value.trim().padStart(4, '0');
+  if (!/^\d{4}$/.test(num)) return;
+  const d = await api(`/api/${currentOp}/lookup?num=${num}`);
+  const el = $$('lookup-result');
+  if (!d.found) {
+    el.innerHTML = `<div class="panel empty-state"><div style="font-family:var(--font-mono);font-size:32px;color:var(--border);margin-bottom:8px">${num}</div><div>Never drawn in ${operators[currentOp]?.name || currentOp}.</div></div>`;
+    return;
+  }
+  const t = d.tiers; const tiers = [['1st Prize', t.p1, 'var(--accent)'], ['2nd Prize', t.p2, 'var(--green)'], ['3rd Prize', t.p3, '#86efac'], ['Special', t.sp, 'var(--gold)'], ['Consolation', t.co, 'var(--blue)']]; const mx = Math.max(...tiers.map(x => x[1]));
+  el.innerHTML = `
+    <div class="cards"><div class="card red"><div class="card-label">Number</div><div class="card-value">${num}</div></div><div class="card green"><div class="card-label">Total</div><div class="card-value">${d.total}</div></div><div class="card gold"><div class="card-label">Gap</div><div class="card-value">${d.gap ?? '-'}</div><div class="card-sub">draws since last</div></div></div>
+    <div class="grid2"><div class="panel"><div class="panel-title">Tier breakdown</div>${tiers.map(([l, c, col]) => `<div class="tier-bar-row"><div class="tier-bar-label">${l}</div><div class="tier-bar-track"><div class="tier-bar-fill" style="width:${mx > 0 ? Math.round(c / mx * 100) : 0}%;background:${col}"></div></div><div class="tier-bar-val">${c}</div></div>`).join('')}</div>
+    <div class="panel"><div class="panel-title">Last 20 appearances</div><table><thead><tr><th>Draw #</th><th>Date</th><th>Tier</th></tr></thead><tbody>${(d.appearances || []).slice(-20).reverse().map(a => `<tr><td>${a.draw_seq}</td><td>${a.date}</td><td><span class="tier-badge ${a.tier === '1st' ? 'p1' : a.tier === 'Special' ? 'sp' : a.tier === 'Consolation' ? 'co' : 'p2'}">${a.tier}</span></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+/* ── Compare ────────────────────────────────────────────── */
+async function loadCompare() {
+  try {
+    const d = await api('/api/compare');
+    const el = $$('compare-content');
+    const keys = Object.keys(d);
+    if (keys.length === 0) { el.innerHTML = '<div class="empty-state"><h3>No data yet</h3><p>Scrape at least one operator first.</p></div>'; return; }
+    let html = '<div class="cards">';
+    for (const [key, op] of Object.entries(d)) {
+      html += `<div class="card"><div class="card-label">${op.name}</div><div class="card-value green">${op.draws.toLocaleString()}</div><div class="card-sub">${op.unique.toLocaleString()} unique | ${op.never_drawn} never drawn</div></div>`;
+    }
+    html += '</div>';
+    if (keys.length > 1) {
+      const sets = {}; for (const [key, op] of Object.entries(d)) sets[key] = new Set(op.top20.map(x => x.num));
+      const pairs = []; for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) {
+        const overlap = [...sets[keys[i]]].filter(n => sets[keys[j]].has(n));
+        pairs.push({ a: d[keys[i]].name, b: d[keys[j]].name, overlap: overlap.length, nums: overlap });
+      }
+      html += '<div class="panel" style="margin-top:16px"><div class="panel-title">Top-20 number overlap between operators</div>';
+      pairs.forEach(p => { html += `<p style="font-size:13px;color:var(--text2);margin-bottom:8px"><b style="color:var(--text)">${p.a}</b> vs <b style="color:var(--text)">${p.b}</b>: ${p.overlap}/20 shared (<span style="font-family:var(--font-mono)">${p.nums.join(', ') || 'none'}</span>)</p>`; });
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  } catch(e) {}
+}
+
+/* -- Scraper helpers ------------------------------------------------- */
+const OP_LIMITS = { sportstoto: 1992, magnum: 1985, damacai: 2005 };
+
+function onScraperOpChange() {
+  const op = $$('sc-op').value;
+  const minY = operators[op]?.min_year || OP_LIMITS[op] || 1985;
+  $$('sc-from').min = minY;
+  $$('sc-from').value = Math.max(parseInt($$('sc-from').value), minY);
+  $$('sc-year-hint').textContent = `Earliest available data for ${operators[op]?.name || op}: ${minY}. Cannot scrape earlier than this.`;
+}
+
+function renderScraperDataStatus() {
+  const el = $$('scraper-data-status');
+  if (!el || !operators) return;
+  let html = '<table><thead><tr><th>Operator</th><th>Status</th><th>Draws</th><th>Data from</th><th>Data to</th><th>Earliest possible</th></tr></thead><tbody>';
+  for (const [key, op] of Object.entries(operators)) {
+    const hasData = op.has_data && op.draws > 0;
+    const statusColor = hasData ? 'var(--green)' : 'var(--text3)';
+    const statusText = hasData ? 'Ready' : 'No data';
+    html += `<tr>
+      <td style="font-weight:500;color:var(--text)">${op.name}</td>
+      <td style="color:${statusColor}">${statusText}</td>
+      <td style="font-family:var(--font-mono)">${hasData ? op.draws.toLocaleString() : '-'}</td>
+      <td style="font-family:var(--font-mono)">${op.date_from || '-'}</td>
+      <td style="font-family:var(--font-mono)">${op.date_to || '-'}</td>
+      <td style="font-family:var(--font-mono);color:var(--text3)">${op.min_year || OP_LIMITS[key] || '?'}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+/* -- Scraper --------------------------------------------------------- */
+let scrapePoller = null;
+async function startScrape(update) {
+  const opKey = $$('sc-op').value;
+  const minY = operators[opKey]?.min_year || OP_LIMITS[opKey] || 1985;
+  const fromY = parseInt($$('sc-from').value);
+
+  if (!update && fromY < minY) {
+    $$('scrape-log').textContent = `[ERROR] ${operators[opKey]?.name || opKey} data only available from ${minY}.\nCannot scrape earlier than ${minY}.\n\nChange "From year" to ${minY} or later.`;
+    return;
+  }
+
+  $$('sc-btn').disabled = true; $$('sc-update-btn').disabled = true;
+  const log = $$('scrape-log'); log.innerHTML = '<span class="spinner"></span> Starting...\n';
+  const body = { operator: $$('sc-op').value, ...(update ? { update: true } : { from_year: parseInt($$('sc-from').value), to_year: parseInt($$('sc-to').value) }) };
+  try { await fetch(`${BASE}/api/scrape`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); scrapePoller = setInterval(pollScrape, 1500); } catch(e) { log.textContent = 'Could not reach server.'; $$('sc-btn').disabled = false; $$('sc-update-btn').disabled = false; }
+}
+async function pollScrape() {
+  try {
+    const d = await api('/api/scrape/status');
+    $$('scrape-log').innerHTML = d.log.map(l => l.startsWith('[OK]') ? `<span style="color:var(--green)">${l}</span>` : l.startsWith('[ERROR]') ? `<span style="color:var(--accent)">${l}</span>` : l).join('\n');
+    $$('scrape-log').scrollTop = $$('scrape-log').scrollHeight;
+    $$('scrape-status').innerHTML = d.running ? `<span class="spinner"></span> Running... ${d.draws_so_far > 0 ? d.draws_so_far + ' draws so far' : ''}` : '';
+    if (d.done || !d.running) { clearInterval(scrapePoller); $$('sc-btn').disabled = false; $$('sc-update-btn').disabled = false;
+      $$('scrape-status').textContent = d.error ? 'Error: ' + d.error : 'Scrape complete'; refreshStatus(); }
+  } catch(e) {}
+}
+
+function exportCSV() { window.location.href = `${BASE}/api/${currentOp}/export`; }
+</script>
+</body>
+</html>
