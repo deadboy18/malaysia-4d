@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Malaysia 4D Analytics</title>
+<meta name="description" content="Historical 4D lottery analytics for Malaysia — Sport Toto, Magnum 4D, Da Ma Cai. 15,900+ draws, 367,000+ winning numbers.">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+/* ── Theme Variables ──────────────────────────────────────── */
+:root {
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --transition: 0.18s ease;
+}
+[data-theme="dark"] {
+  --bg: #0a0a0c; --surface: #111114; --card: #18181c;
+  --border: #27272c; --border2: #1f1f24;
+  --text: #e8e8ec; --text2: #8c8c96; --text3: #55555e;
+  --accent: #e03e3e; --accent2: #ff5555; --accent-bg: rgba(224,62,62,0.08);
+  --green: #22c55e; --green-bg: rgba(34,197,94,0.1);
+  --blue: #60a5fa; --blue-bg: rgba(96,165,250,0.1);
+  --gold: #f59e0b; --gold-bg: rgba(245,158,11,0.1);
+  --chart-grid: rgba(255,255,255,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+[data-theme="light"] {
+  --bg: #f4f4f7; --surface: #ffffff; --card: #ffffff;
+  --border: #e2e2e8; --border2: #ebebf0;
+  --text: #1a1a2e; --text2: #6b6b80; --text3: #9999aa;
+  --accent: #cc0000; --accent2: #e03030; --accent-bg: rgba(204,0,0,0.06);
+  --green: #16a34a; --green-bg: rgba(22,163,74,0.08);
+  --blue: #2563eb; --blue-bg: rgba(37,99,235,0.08);
+  --gold: #d97706; --gold-bg: rgba(217,119,6,0.08);
+  --chart-grid: rgba(0,0,0,0.05);
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ── Reset & Base ─────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: background var(--transition), color var(--transition); }
+::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Header ───────────────────────────────────────────────── */
+#header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; transition: background var(--transition); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 11px; font-family: var(--font-mono); letter-spacing: -0.5px; }
+.brand-name { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+.brand-name span { color: var(--accent); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+#status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+#status-dot.ok { background: var(--green); }
+#status-text { font-size: 12px; color: var(--text2); }
+
+/* Theme toggle */
+.theme-btn { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; cursor: pointer; font-size: 12px; color: var(--text2); transition: all var(--transition); }
+.theme-btn:hover { border-color: var(--text3); color: var(--text); }
+
+/* ── Layout ───────────────────────────────────────────────── */
+#layout { display: flex; flex: 1; overflow: hidden; }
+#sidebar { width: 180px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; transition: background var(--transition); }
+.nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); padding: 16px 18px 6px; font-weight: 600; }
+.nav-item { padding: 8px 18px; cursor: pointer; font-size: 13px; color: var(--text2); border-left: 2.5px solid transparent; transition: all var(--transition); user-select: none; }
+.nav-item:hover { color: var(--text); background: var(--accent-bg); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-bg); font-weight: 500; }
+#main { flex: 1; overflow-y: auto; padding: 20px 28px; }
+.section { display: none; } .section.active { display: block; }
+
+/* ── Operator Tabs ────────────────────────────────────────── */
+.op-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+.op-tab { padding: 7px 16px; border-radius: 8px; border: 1.5px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; font-family: var(--font-body); transition: all var(--transition); }
+.op-tab:hover { border-color: var(--text3); color: var(--text); }
+.op-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.op-tab .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+.op-tab .dot.toto { background: #CC0000; } .op-tab .dot.magnum { background: #FFD700; } .op-tab .dot.damacai { background: #0066CC; }
+
+/* ── Cards ────────────────────────────────────────────────── */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); transition: background var(--transition), border var(--transition); }
+.card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 4px; font-weight: 600; }
+.card-value { font-size: 24px; font-weight: 600; font-family: var(--font-mono); }
+.card-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.card.red .card-value { color: var(--accent2); } .card.green .card-value { color: var(--green); }
+.card.blue .card-value { color: var(--blue); } .card.gold .card-value { color: var(--gold); }
+
+/* ── Panels ───────────────────────────────────────────────── */
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow); transition: background var(--transition), border var(--transition); }
+.panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 14px; }
+.panel-title span { color: var(--text); }
+
+/* ── Pills ────────────────────────────────────────────────── */
+.pills { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+.pill { padding: 4px 11px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-size: 12px; font-family: var(--font-body); transition: all var(--transition); }
+.pill:hover { color: var(--text); border-color: var(--text3); }
+.pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+/* ── Table ────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; padding: 8px 10px; border-bottom: 1.5px solid var(--border); color: var(--text3); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--border2); }
+tr:hover { background: var(--accent-bg); }
+
+/* ── Grid ─────────────────────────────────────────────────── */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+/* ── Badges ───────────────────────────────────────────────── */
+.tier-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: var(--font-mono); }
+.tier-badge.p1 { background: var(--accent-bg); color: var(--accent); }
+.tier-badge.p2 { background: var(--green-bg); color: var(--green); }
+.tier-badge.sp { background: var(--gold-bg); color: var(--gold); }
+.tier-badge.co { background: var(--blue-bg); color: var(--blue); }
+
+/* ── Misc ─────────────────────────────────────────────────── */
+.bar-inline { display: inline-block; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: middle; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text3); }
+.empty-state h3 { font-size: 16px; margin-bottom: 8px; color: var(--text2); }
+.tier-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tier-bar-label { width: 80px; font-size: 11px; color: var(--text2); text-align: right; flex-shrink: 0; }
+.tier-bar-track { flex: 1; height: 18px; background: var(--border2); border-radius: 3px; overflow: hidden; }
+.tier-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+.tier-bar-val { width: 32px; font-size: 12px; font-family: var(--font-mono); color: var(--text2); }
+button { padding: 7px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; font-size: 13px; font-family: var(--font-body); transition: all var(--transition); }
+button:hover { border-color: var(--text3); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: var(--accent2); }
+input, select { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 10px; color: var(--text); font-family: var(--font-body); font-size: 13px; }
+.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Loading overlay ──────────────────────────────────────── */
+#loading-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; transition: opacity 0.3s; }
+#loading-overlay.hidden { opacity: 0; pointer-events: none; }
+.loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+#loading-text { font-size: 13px; color: var(--text2); }
+
+/* ── Info banner ──────────────────────────────────────────── */
+.info-banner { background: var(--blue-bg); border: 1px solid var(--blue); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; font-size: 12px; color: var(--text2); line-height: 1.5; }
+.info-banner a { color: var(--blue); text-decoration: none; }
+.info-banner a:hover { text-decoration: underline; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .grid2, .grid4 { grid-template-columns: 1fr; }
+  #sidebar { width: 140px; }
+}
+@media (max-width: 600px) {
+  #sidebar { display: none; }
+  #main { padding: 12px; }
+  .cards { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<div id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div id="loading-text">Loading CSV data...</div>
+</div>
+
+<div id="header">
+  <div class="brand">
+    <div class="brand-icon">4D</div>
+    <div class="brand-name">Malaysia <span>4D</span> Analytics</div>
+  </div>
+  <div class="header-right">
+    <div id="status-dot"></div>
+    <div id="status-text">Loading...</div>
+    <button class="theme-btn" onclick="toggleTheme()">theme</button>
+    <a href="https://github.com/deadboy18/malaysia-4d" target="_blank" style="font-size:12px;color:var(--text3);text-decoration:none">GitHub</a>
+  </div>
+</div>
+
+<div id="layout">
+  <div id="sidebar">
+    <div class="nav-label">Analytics</div>
+    <div class="nav-item active" data-section="home">Overview</div>
+    <div class="nav-item" data-section="hotcold">Hot / Cold</div>
+    <div class="nav-item" data-section="digits">Digit analysis</div>
+    <div class="nav-item" data-section="gaps">Gap analysis</div>
+    <div class="nav-item" data-section="patterns">Patterns</div>
+    <div class="nav-label">Tools</div>
+    <div class="nav-item" data-section="lookup">Number lookup</div>
+    <div class="nav-item" data-section="compare">Compare</div>
+    <div class="nav-item" data-section="about">About</div>
+  </div>
+
+  <div id="main">
+    <!-- ── HOME ───────────────────────────────────────────── -->
+    <div id="home" class="section active">
+      <div class="op-tabs" id="home-op-tabs"></div>
+      <div class="cards" id="home-cards"></div>
+      <div class="panel">
+        <div class="panel-title">Top 20 most frequent — <span id="home-chart-label"></span></div>
+        <div style="height:250px"><canvas id="home-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── HOT / COLD ────────────────────────────────────── -->
+    <div id="hotcold" class="section">
+      <div class="op-tabs" id="hc-op-tabs"></div>
+      <div class="pills" id="tier-pills"></div>
+      <div class="grid2">
+        <div class="panel"><div class="panel-title">Top 30 hottest</div><div style="height:640px"><canvas id="hot-chart"></canvas></div></div>
+        <div class="panel"><div class="panel-title">30 coldest</div><div style="height:640px"><canvas id="cold-chart"></canvas></div></div>
+      </div>
+      <div class="panel"><div class="panel-title">Frequency distribution</div><div style="height:180px"><canvas id="freq-dist-chart"></canvas></div></div>
+    </div>
+
+    <!-- ── DIGITS ────────────────────────────────────────── -->
+    <div id="digits" class="section">
+      <div class="op-tabs" id="dg-op-tabs"></div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Digit frequency at each position across all prize tiers. Red = most common.</p>
+      <div class="grid4" id="digit-charts">
+        <div class="panel"><div class="panel-title">Pos 1 - Thousands</div><div style="height:150px"><canvas id="dp0"></canvas></div><div class="card-sub" id="dp0-note" style="margin-top:6px;font-size:11px"></div></div>
+        <div class="panel"><div class="panel-title">Pos 2 - Hundreds</div><div style="height:150px"><canvas id="dp1"></canvas></div><div class="card-sub" id="dp1-note" style="margin-top:6px;font-size:11px"></div></div>
+        <div class="panel"><div class="panel-title">Pos 3 - Tens</div><div style="height:150px"><canvas id="dp2"></canvas></div><div class="card-sub" id="dp2-note" style="margin-top:6px;font-size:11px"></div></div>
+        <div class="panel"><div class="panel-title">Pos 4 - Units</div><div style="height:150px"><canvas id="dp3"></canvas></div><div class="card-sub" id="dp3-note" style="margin-top:6px;font-size:11px"></div></div>
+      </div>
+      <div class="panel"><div class="panel-title">Summary</div><table><thead><tr><th>Position</th><th>Most common</th><th>Count</th><th>Least common</th><th>Count</th><th>Range</th></tr></thead><tbody id="digit-table"></tbody></table></div>
+    </div>
+
+    <!-- ── GAPS ──────────────────────────────────────────── -->
+    <div id="gaps" class="section">
+      <div class="op-tabs" id="gp-op-tabs"></div>
+      <div class="cards" id="gap-cards"></div>
+      <div class="panel"><div class="panel-title">Top 40 most overdue</div><div style="height:820px"><canvas id="gap-chart"></canvas></div></div>
+      <div class="panel"><div class="panel-title">Full overdue table</div><table><thead><tr><th>Number</th><th>Gap</th><th>Total</th><th>1st</th><th>Special</th><th>Consol.</th></tr></thead><tbody id="gap-table"></tbody></table></div>
+    </div>
+
+    <!-- ── PATTERNS ──────────────────────────────────────── -->
+    <div id="patterns" class="section">
+      <div class="op-tabs" id="pt-op-tabs"></div>
+      <div class="grid2">
+        <div class="panel"><div class="panel-title">Pattern type - <span>all tiers</span></div><div style="height:250px"><canvas id="pat-all-chart"></canvas></div></div>
+        <div class="panel"><div class="panel-title">Pattern type - <span>1st prize only</span></div><div style="height:250px"><canvas id="pat-1st-chart"></canvas></div></div>
+      </div>
+      <div class="panel"><div class="panel-title">Day-of-week top 10</div><div id="weekday-panel" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px"></div></div>
+    </div>
+
+    <!-- ── LOOKUP ────────────────────────────────────────── -->
+    <div id="lookup" class="section">
+      <div class="op-tabs" id="lu-op-tabs"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
+        <input type="text" id="lookup-input" maxlength="4" placeholder="1234" style="width:110px;font-family:var(--font-mono);font-size:20px;text-align:center;letter-spacing:0.15em" oninput="if(this.value.length===4&&/^\d{4}$/.test(this.value))doLookup()">
+        <button class="primary" onclick="doLookup()">Search</button>
+        <span style="font-size:12px;color:var(--text2)">Enter any 4-digit number (0000-9999)</span>
+      </div>
+      <div id="lookup-result"></div>
+    </div>
+
+    <!-- ── COMPARE ───────────────────────────────────────── -->
+    <div id="compare" class="section">
+      <div class="panel"><div class="panel-title">Cross-operator comparison</div><div id="compare-content"></div></div>
+    </div>
+
+    <!-- ── ABOUT ─────────────────────────────────────────── -->
+    <div id="about" class="section">
+      <div class="panel">
+        <div class="panel-title">About this dashboard</div>
+        <p style="color:var(--text2);font-size:13px;line-height:1.7;max-width:640px">
+          This is a <b style="color:var(--text)">static, read-only</b> version of the Malaysia 4D Analytics dashboard.
+          It loads pre-scraped CSV data directly in your browser — no server required.
+          <br><br>
+          The data was last updated on <b style="color:var(--text)">27 April 2026</b> and covers:
+        </p>
+        <div class="cards" style="margin-top:12px;max-width:640px">
+          <div class="card"><div class="card-label">Sport Toto</div><div class="card-value green" style="font-size:16px">Since 1992</div></div>
+          <div class="card"><div class="card-label">Magnum 4D</div><div class="card-value gold" style="font-size:16px">Since 1985</div></div>
+          <div class="card"><div class="card-label">Da Ma Cai</div><div class="card-value blue" style="font-size:16px">Since 2005</div></div>
+        </div>
+        <p style="color:var(--text2);font-size:13px;line-height:1.7;max-width:640px;margin-top:16px">
+          To scrape fresh data or run the full local server, clone the repo and run <code style="background:var(--border2);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">python server.py</code>.
+          <br><br>
+          Source: <a href="https://github.com/deadboy18/malaysia-4d" target="_blank" style="color:var(--accent);text-decoration:none">github.com/deadboy18/malaysia-4d</a>
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   Malaysia 4D Analytics — Static (GitHub Pages) build
+   All analytics computed client-side from CSV data
+   ================================================================ */
+
+const OPERATORS = {
+  sportstoto: { name: 'Sport Toto', csv: 'data/sportstoto_draws.csv', color: '#CC0000', minYear: 1992 },
+  magnum:     { name: 'Magnum 4D',  csv: 'data/magnum_draws.csv',     color: '#FFD700', minYear: 1985 },
+  damacai:    { name: 'Da Ma Cai',  csv: 'data/damacai_draws.csv',    color: '#0066CC', minYear: 2005 },
+};
+
+const ALL_COLS = ['prize_1','prize_2','prize_3',
+  ...Array.from({length:10},(_,i)=>`special_${i+1}`),
+  ...Array.from({length:10},(_,i)=>`consol_${i+1}`)];
+
+let charts = {};
+let currentOp = 'sportstoto';
+let currentTier = 'total';
+let opData = {};  // { sportstoto: { rows, freq, digits, patterns, weekdays, ... }, ... }
+let operators = {};
+
+function $$(id) { return document.getElementById(id); }
+function mkChart(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($$(id), cfg); return charts[id]; }
+
+/* ── Theme ──────────────────────────────────────────────── */
+function toggleTheme() {
+  const t = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', t);
+  try { localStorage.setItem('theme', t); } catch(e) {}
+  Object.values(charts).forEach(c => c.update());
+}
+(function() { try { const t = localStorage.getItem('theme'); if (t) document.body.setAttribute('data-theme', t); } catch(e) {} })();
+
+/* ── CSV Loading ────────────────────────────────────────── */
+function loadCSV(url) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: r => resolve(r.data),
+      error: e => reject(e),
+    });
+  });
+}
+
+async function loadAllData() {
+  const overlay = $$('loading-overlay');
+  const text = $$('loading-text');
+  let loaded = 0;
+  const total = Object.keys(OPERATORS).length;
+
+  for (const [key, op] of Object.entries(OPERATORS)) {
+    text.textContent = `Loading ${op.name}...`;
+    try {
+      const rows = await loadCSV(op.csv);
+      opData[key] = computeAnalytics(rows, key);
+      operators[key] = {
+        name: op.name, color: op.color, has_data: true,
+        draws: opData[key].totalDraws,
+        min_year: op.minYear,
+        date_from: opData[key].dateFrom,
+        date_to: opData[key].dateTo,
+      };
+    } catch(e) {
+      console.error(`Failed to load ${key}:`, e);
+      operators[key] = { name: op.name, color: op.color, has_data: false, draws: 0, min_year: op.minYear };
+    }
+    loaded++;
+    text.textContent = `Loaded ${loaded}/${total}...`;
+  }
+
+  text.textContent = 'Ready';
+  setTimeout(() => overlay.classList.add('hidden'), 300);
+
+  $$('status-dot').className = 'ok';
+  const o = operators[currentOp];
+  $$('status-text').textContent = o ? `${o.draws.toLocaleString()} ${o.name} draws` : 'Ready';
+  renderAllOpTabs(loadCurrentSection);
+  loadHome();
+}
+
+/* ── Analytics Engine (replaces Flask/Pandas) ───────────── */
+function computeAnalytics(rows, opKey) {
+  const validCols = ALL_COLS.filter(c => rows.length > 0 && rows[0].hasOwnProperty(c));
+  const freq = {};
+  const allNums = [];
+  const drawSeqs = [];
+  const dates = [];
+
+  rows.forEach((row, idx) => {
+    drawSeqs.push(parseInt(row.draw_seq) || 0);
+    dates.push(row.date || '');
+    validCols.forEach(col => {
+      let n = (row[col] || '').toString().trim();
+      if (!n || n === '' || n === 'nan' || n === 'NaN') return;
+      n = n.padStart(4, '0');
+      if (n.length !== 4 || !/^\d{4}$/.test(n)) return;
+      allNums.push(n);
+      if (!freq[n]) freq[n] = { total:0, p1:0, p2:0, p3:0, sp:0, co:0, lastIdx:0 };
+      freq[n].total++;
+      const t = col === 'prize_1' ? 'p1' : col === 'prize_2' ? 'p2' : col === 'prize_3' ? 'p3' : col.includes('special') ? 'sp' : 'co';
+      freq[n][t]++;
+      freq[n].lastIdx = idx;
+    });
+  });
+
+  const lastIdx = rows.length - 1;
+  for (const n in freq) freq[n].gap = lastIdx - freq[n].lastIdx;
+
+  // Digit positions
+  const digitPositions = [0,1,2,3].map(pos => {
+    const cnt = Array(10).fill(0);
+    allNums.forEach(n => cnt[parseInt(n[pos])]++);
+    return cnt;
+  });
+
+  // Patterns
+  function classifyPattern(n) {
+    const d = n.split('');
+    const uniq = new Set(d).size;
+    if (uniq === 1) return 'quad';
+    if (d.join('') === d.slice().sort().join('')) return 'ascending';
+    if (d.join('') === d.slice().sort().reverse().join('')) return 'descending';
+    if (n === n.split('').reverse().join('')) return 'palindrome';
+    if (uniq === 2) return 'two_digit';
+    if (uniq === 3) return 'three_digit';
+    return 'all_diff';
+  }
+
+  const patAll = {};
+  allNums.forEach(n => { const p = classifyPattern(n); patAll[p] = (patAll[p]||0) + 1; });
+
+  const pat1st = {};
+  rows.forEach(row => {
+    let n = (row.prize_1 || '').toString().trim().padStart(4, '0');
+    if (n.length === 4 && /^\d{4}$/.test(n)) {
+      const p = classifyPattern(n);
+      pat1st[p] = (pat1st[p]||0) + 1;
+    }
+  });
+
+  // Weekday analysis
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const weekdays = {};
+  rows.forEach(row => {
+    const d = new Date(row.date);
+    if (isNaN(d)) return;
+    const dayName = dayNames[d.getDay()];
+    if (!weekdays[dayName]) weekdays[dayName] = { draws: 0, nums: {} };
+    weekdays[dayName].draws++;
+    validCols.forEach(col => {
+      let n = (row[col] || '').toString().trim().padStart(4, '0');
+      if (n.length === 4 && /^\d{4}$/.test(n)) {
+        weekdays[dayName].nums[n] = (weekdays[dayName].nums[n]||0) + 1;
+      }
+    });
+  });
+
+  const weekdayFreq = {};
+  for (const [day, data] of Object.entries(weekdays)) {
+    const sorted = Object.entries(data.nums).sort((a,b) => b[1]-a[1]).slice(0,10);
+    weekdayFreq[day] = { draws: data.draws, top10: sorted.map(([num, count]) => ({ num, count })) };
+  }
+
+  const sortedDates = dates.filter(d => d).sort();
+
+  return {
+    rows, freq, digitPositions,
+    patternAll: patAll, pattern1st: pat1st,
+    weekdayFreq,
+    totalNumbers: allNums.length,
+    totalDraws: rows.length,
+    uniqueCount: Object.keys(freq).length,
+    dateFrom: sortedDates[0] ? sortedDates[0].slice(0,10) : '',
+    dateTo: sortedDates[sortedDates.length-1] ? sortedDates[sortedDates.length-1].slice(0,10) : '',
+    drawFrom: Math.min(...drawSeqs.filter(x=>x>0)),
+    drawTo: Math.max(...drawSeqs),
+  };
+}
+
+/* ── Navigation ─────────────────────────────────────────── */
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    const sec = el.dataset.section;
+    $$(sec).classList.add('active');
+    loadCurrentSection();
+  });
+});
+
+function loadCurrentSection() {
+  const active = document.querySelector('.nav-item.active');
+  if (!active) return;
+  const sec = active.dataset.section;
+  if (sec === 'home') loadHome();
+  if (sec === 'hotcold') loadHotCold();
+  if (sec === 'digits') loadDigits();
+  if (sec === 'gaps') loadGaps();
+  if (sec === 'patterns') loadPatterns();
+  if (sec === 'compare') loadCompare();
+}
+
+/* ── Operator tabs ──────────────────────────────────────── */
+function renderOpTabs(containerId, onChange) {
+  const el = $$(containerId); if (!el) return;
+  el.innerHTML = '';
+  for (const [key, op] of Object.entries(operators)) {
+    const btn = document.createElement('button');
+    const cls = key === 'sportstoto' ? 'toto' : key === 'magnum' ? 'magnum' : 'damacai';
+    btn.className = `op-tab${key === currentOp ? ' active' : ''}${!op.has_data ? ' disabled' : ''}`;
+    btn.innerHTML = `<span class="dot ${cls}"></span>${op.name}${op.draws > 0 ? ` (${op.draws.toLocaleString()})` : ''}`;
+    if (op.has_data) {
+      btn.onclick = () => {
+        currentOp = key;
+        $$('status-text').textContent = `${op.draws.toLocaleString()} ${op.name} draws`;
+        renderAllOpTabs(loadCurrentSection);
+        if (onChange) onChange();
+      };
+    }
+    el.appendChild(btn);
+  }
+}
+
+function renderAllOpTabs(fn) {
+  ['home-op-tabs','hc-op-tabs','dg-op-tabs','gp-op-tabs','pt-op-tabs','lu-op-tabs'].forEach(id => renderOpTabs(id, fn));
+}
+
+/* ── Home ───────────────────────────────────────────────── */
+function loadHome() {
+  const d = opData[currentOp];
+  if (!d) {
+    $$('home-cards').innerHTML = `<div class="card"><div class="card-label">Status</div><div class="card-value" style="font-size:16px">No data</div></div>`;
+    return;
+  }
+  $$('home-cards').innerHTML = `
+    <div class="card"><div class="card-label">Status</div><div class="card-value" style="font-size:16px">Ready</div><div class="card-sub">${d.dateFrom} &rarr; ${d.dateTo}</div></div>
+    <div class="card green"><div class="card-label">Total draws</div><div class="card-value">${d.totalDraws.toLocaleString()}</div><div class="card-sub">#${d.drawFrom} &rarr; #${d.drawTo}</div></div>
+    <div class="card blue"><div class="card-label">Unique numbers</div><div class="card-value">${d.uniqueCount.toLocaleString()}</div><div class="card-sub">${(d.uniqueCount/100).toFixed(1)}% of 10,000</div></div>
+    <div class="card gold"><div class="card-label">Expected freq</div><div class="card-value">${(d.totalNumbers/10000).toFixed(2)}</div><div class="card-sub">per number (uniform)</div></div>
+    <div class="card red"><div class="card-label">Total drawn</div><div class="card-value">${d.totalNumbers.toLocaleString()}</div><div class="card-sub">23 per draw</div></div>`;
+
+  $$('home-chart-label').textContent = operators[currentOp]?.name || currentOp;
+  const sorted = Object.entries(d.freq).sort((a,b) => b[1].total - a[1].total).slice(0,20);
+  const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+  mkChart('home-chart', {
+    type: 'bar',
+    data: { labels: sorted.map(x => x[0]), datasets: [{ data: sorted.map(x => x[1].total), backgroundColor: sorted.map((_,i) => i < 3 ? ac : i < 8 ? ac+'99' : ac+'44'), borderWidth: 0, borderRadius: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'var(--chart-grid)' } }, y: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } } } }
+  });
+}
+
+/* ── Hot / Cold ─────────────────────────────────────────── */
+function renderTierPills() {
+  const labels = { total: 'All tiers', p1: '1st Prize', p2: '2nd Prize', p3: '3rd Prize', sp: 'Special', co: 'Consolation' };
+  $$('tier-pills').innerHTML = Object.entries(labels).map(([k, v]) =>
+    `<button class="pill${k === currentTier ? ' active' : ''}" onclick="currentTier='${k}';renderTierPills();loadHotCold()">${v}</button>`
+  ).join('');
+}
+renderTierPills();
+
+function loadHotCold() {
+  const d = opData[currentOp];
+  if (!d) return;
+  const key = currentTier === 'total' ? 'total' : currentTier;
+  const rows = Object.entries(d.freq).filter(([n, f]) => f[key] > 0).map(([n, f]) => ({ num: n, count: f[key], total: f.total }));
+  rows.sort((a,b) => b.count - a.count);
+  const top = rows.slice(0, 30);
+  const bottom = rows.slice(-30).reverse();
+
+  const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+  const bl = getComputedStyle(document.body).getPropertyValue('--blue').trim();
+  const barOpts = () => ({ responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } }, y: { ticks: { color: 'var(--text2)', font: { family: 'JetBrains Mono', size: 10 } }, grid: { display: false } } } });
+
+  mkChart('hot-chart', { type: 'bar', data: { labels: top.slice().reverse().map(x=>x.num), datasets: [{ data: top.slice().reverse().map(x=>x.count), backgroundColor: ac+'bb', borderWidth: 0, borderRadius: [0,3,3,0] }] }, options: barOpts() });
+  mkChart('cold-chart', { type: 'bar', data: { labels: bottom.slice().reverse().map(x=>x.num), datasets: [{ data: bottom.slice().reverse().map(x=>x.count), backgroundColor: bl+'bb', borderWidth: 0, borderRadius: [0,3,3,0] }] }, options: barOpts() });
+
+  const allC = rows.map(x => x.count);
+  const mx = Math.max(...allC);
+  const bins = 25;
+  const hist = Array(bins).fill(0);
+  allC.forEach(c => { const b = Math.min(Math.floor((c / mx) * bins), bins - 1); hist[b]++; });
+  mkChart('freq-dist-chart', { type: 'bar', data: { labels: Array.from({length:bins},(_,i) => Math.round(i*mx/bins)), datasets: [{ data: hist, backgroundColor: ac+'88', borderWidth: 0, borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', maxTicksLimit: 10 }, grid: { display: false } }, y: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } } } } });
+}
+
+/* ── Digits ─────────────────────────────────────────────── */
+function loadDigits() {
+  const d = opData[currentOp];
+  if (!d) return;
+  const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+  d.digitPositions.forEach((pos, pi) => {
+    const mx = Math.max(...pos);
+    mkChart(`dp${pi}`, { type: 'bar', data: { labels: ['0','1','2','3','4','5','6','7','8','9'], datasets: [{ data: pos, backgroundColor: pos.map(v => v === mx ? ac : 'var(--border)'), borderWidth: 0, borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: 'var(--text3)', font: { size: 9 } }, grid: { color: 'var(--chart-grid)' } } } } });
+    $$(`dp${pi}-note`).textContent = `Most: digit ${pos.indexOf(mx)} (${mx.toLocaleString()})`;
+  });
+  const tbody = $$('digit-table'); tbody.innerHTML = '';
+  const names = ['Thousands', 'Hundreds', 'Tens', 'Units'];
+  d.digitPositions.forEach((pos, pi) => {
+    const mx = Math.max(...pos), mn = Math.min(...pos.filter(v => v > 0));
+    tbody.innerHTML += `<tr><td style="color:var(--text2)">${pi+1} (${names[pi]})</td><td style="color:var(--accent);font-weight:600">${pos.indexOf(mx)}</td><td>${mx.toLocaleString()}</td><td style="color:var(--blue);font-weight:600">${pos.indexOf(mn)}</td><td>${mn.toLocaleString()}</td><td>${(mx-mn).toLocaleString()}</td></tr>`;
+  });
+}
+
+/* ── Gaps ───────────────────────────────────────────────── */
+function loadGaps() {
+  const d = opData[currentOp];
+  if (!d) return;
+  const rows = Object.entries(d.freq).map(([n, f]) => ({ num: n, ...f }));
+  rows.sort((a,b) => b.gap - a.gap);
+  const gaps = rows.map(r => r.gap);
+  const median = gaps.slice().sort((a,b)=>a-b)[Math.floor(gaps.length/2)];
+  const mean = (gaps.reduce((s,v)=>s+v,0)/gaps.length).toFixed(1);
+  const neverDrawn = 10000 - rows.length;
+  const over100 = gaps.filter(g => g > 100).length;
+
+  $$('gap-cards').innerHTML = `
+    <div class="card gold"><div class="card-label">Median gap</div><div class="card-value">${median}</div><div class="card-sub">draws between appearances</div></div>
+    <div class="card"><div class="card-label">Mean gap</div><div class="card-value">${mean}</div></div>
+    <div class="card red"><div class="card-label">Overdue 100+</div><div class="card-value">${over100.toLocaleString()}</div></div>
+    <div class="card"><div class="card-label">Never drawn</div><div class="card-value">${neverDrawn.toLocaleString()}</div><div class="card-sub">of 10,000 possible</div></div>`;
+
+  const top40 = rows.slice(0,40).reverse();
+  const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+  const gl = getComputedStyle(document.body).getPropertyValue('--gold').trim();
+  const bl = getComputedStyle(document.body).getPropertyValue('--blue').trim();
+  mkChart('gap-chart', { type: 'bar', data: { labels: top40.map(x=>x.num), datasets: [{ data: top40.map(x=>x.gap), backgroundColor: top40.map(x => x.gap > 100 ? ac : x.gap > 60 ? gl : bl), borderWidth: 0, borderRadius: [0,3,3,0] }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } }, y: { ticks: { color: 'var(--text2)', font: { family: 'JetBrains Mono', size: 10 } }, grid: { display: false } } } } });
+
+  const tbody = $$('gap-table'); tbody.innerHTML = '';
+  rows.slice(0,50).forEach(r => {
+    const barW = Math.min(Math.round((r.gap / (rows[0].gap || 1)) * 80), 80);
+    tbody.innerHTML += `<tr><td style="font-weight:600">${r.num}</td><td><span class="bar-inline" style="width:${barW}px;background:${r.gap > 100 ? 'var(--accent)' : 'var(--gold)'}"></span>${r.gap}</td><td>${r.total}</td><td><span class="tier-badge p1">${r.p1||0}</span></td><td><span class="tier-badge sp">${r.sp||0}</span></td><td><span class="tier-badge co">${r.co||0}</span></td></tr>`;
+  });
+}
+
+/* ── Patterns ───────────────────────────────────────────── */
+function loadPatterns() {
+  const d = opData[currentOp];
+  if (!d) return;
+  const labels = { quad: 'Quad', ascending: 'Ascending', descending: 'Descending', palindrome: 'Palindrome', two_digit: 'Two digits', three_digit: 'Three digits', all_diff: 'All different' };
+  const colors = ['#e03e3e', '#d97706', '#16a34a', '#2563eb', '#7c3aed', '#a8a29e', '#525252'];
+  const keys = Object.keys(labels);
+  const mkPat = (id, data) => mkChart(id, { type: 'bar', data: { labels: keys.map(k=>labels[k]), datasets: [{ data: keys.map(k=>data[k]||0), backgroundColor: colors, borderWidth: 0, borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'var(--text3)', font: { size: 10 }, maxRotation: 30 }, grid: { display: false } }, y: { ticks: { color: 'var(--text3)' }, grid: { color: 'var(--chart-grid)' } } } } });
+  mkPat('pat-all-chart', d.patternAll);
+  mkPat('pat-1st-chart', d.pattern1st);
+
+  const wp = $$('weekday-panel'); wp.innerHTML = '';
+  for (const day of ['Wednesday', 'Saturday', 'Sunday']) {
+    const wd = d.weekdayFreq[day]; if (!wd) continue;
+    wp.innerHTML += `<div><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">${day} <span style="color:var(--text3);font-weight:400">(${wd.draws})</span></div>` +
+      wd.top10.map((x,i) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border2);font-family:var(--font-mono);font-size:12px"><span style="color:${i===0?'var(--accent)':'var(--text)'}">${x.num}</span><span style="color:var(--text3)">${x.count}x</span></div>`).join('') + '</div>';
+  }
+}
+
+/* ── Lookup ─────────────────────────────────────────────── */
+function doLookup() {
+  const num = ($$('lookup-input').value || '').trim().padStart(4, '0');
+  if (!/^\d{4}$/.test(num)) return;
+  const d = opData[currentOp];
+  if (!d) return;
+  const el = $$('lookup-result');
+  const f = d.freq[num];
+
+  if (!f) {
+    el.innerHTML = `<div class="panel empty-state"><div style="font-family:var(--font-mono);font-size:32px;color:var(--border);margin-bottom:8px">${num}</div><div>Never drawn in ${operators[currentOp]?.name || currentOp}.</div></div>`;
+    return;
+  }
+
+  // Find appearances
+  const validCols = ALL_COLS.filter(c => d.rows.length > 0 && d.rows[0].hasOwnProperty(c));
+  const appearances = [];
+  d.rows.forEach(row => {
+    validCols.forEach(col => {
+      const n = (row[col] || '').toString().trim().padStart(4, '0');
+      if (n === num) {
+        const t = col === 'prize_1' ? '1st' : col === 'prize_2' ? '2nd' : col === 'prize_3' ? '3rd' : col.includes('special') ? 'Special' : 'Consolation';
+        appearances.push({ draw_seq: parseInt(row.draw_seq)||0, date: (row.date||'').slice(0,10), tier: t });
+      }
+    });
+  });
+  appearances.sort((a,b) => a.draw_seq - b.draw_seq);
+
+  const tiers = [['1st Prize', f.p1, 'var(--accent)'], ['2nd Prize', f.p2, 'var(--green)'], ['3rd Prize', f.p3, '#86efac'], ['Special', f.sp, 'var(--gold)'], ['Consolation', f.co, 'var(--blue)']];
+  const mx = Math.max(...tiers.map(x => x[1]));
+
+  el.innerHTML = `
+    <div class="cards"><div class="card red"><div class="card-label">Number</div><div class="card-value">${num}</div></div><div class="card green"><div class="card-label">Total</div><div class="card-value">${f.total}</div></div><div class="card gold"><div class="card-label">Gap</div><div class="card-value">${f.gap ?? '-'}</div><div class="card-sub">draws since last</div></div></div>
+    <div class="grid2"><div class="panel"><div class="panel-title">Tier breakdown</div>${tiers.map(([l,c,col]) => `<div class="tier-bar-row"><div class="tier-bar-label">${l}</div><div class="tier-bar-track"><div class="tier-bar-fill" style="width:${mx>0?Math.round(c/mx*100):0}%;background:${col}"></div></div><div class="tier-bar-val">${c}</div></div>`).join('')}</div>
+    <div class="panel"><div class="panel-title">Last 20 appearances</div><table><thead><tr><th>Draw #</th><th>Date</th><th>Tier</th></tr></thead><tbody>${appearances.slice(-20).reverse().map(a => `<tr><td>${a.draw_seq}</td><td>${a.date}</td><td><span class="tier-badge ${a.tier==='1st'?'p1':a.tier==='Special'?'sp':a.tier==='Consolation'?'co':'p2'}">${a.tier}</span></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+/* ── Compare ────────────────────────────────────────────── */
+function loadCompare() {
+  const el = $$('compare-content');
+  const keys = Object.keys(opData);
+  if (keys.length === 0) { el.innerHTML = '<div class="empty-state"><h3>No data loaded</h3></div>'; return; }
+
+  let html = '<div class="cards">';
+  for (const [key, d] of Object.entries(opData)) {
+    const neverDrawn = 10000 - d.uniqueCount;
+    html += `<div class="card"><div class="card-label">${operators[key].name}</div><div class="card-value green">${d.totalDraws.toLocaleString()}</div><div class="card-sub">${d.uniqueCount.toLocaleString()} unique | ${neverDrawn} never drawn</div></div>`;
+  }
+  html += '</div>';
+
+  if (keys.length > 1) {
+    const sets = {};
+    for (const key of keys) {
+      const top20 = Object.entries(opData[key].freq).sort((a,b) => b[1].total - a[1].total).slice(0,20).map(x => x[0]);
+      sets[key] = new Set(top20);
+    }
+    html += '<div class="panel" style="margin-top:16px"><div class="panel-title">Top-20 number overlap between operators</div>';
+    for (let i = 0; i < keys.length; i++) {
+      for (let j = i+1; j < keys.length; j++) {
+        const overlap = [...sets[keys[i]]].filter(n => sets[keys[j]].has(n));
+        html += `<p style="font-size:13px;color:var(--text2);margin-bottom:8px"><b style="color:var(--text)">${operators[keys[i]].name}</b> vs <b style="color:var(--text)">${operators[keys[j]].name}</b>: ${overlap.length}/20 shared (<span style="font-family:var(--font-mono)">${overlap.join(', ') || 'none'}</span>)</p>`;
+      }
+    }
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+/* ── Init ───────────────────────────────────────────────── */
+loadAllData();
+</script>
+</body>
+</html>
