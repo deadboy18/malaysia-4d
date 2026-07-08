@@ -1,0 +1,58 @@
+name: Update 4D Draw Results
+
+on:
+  schedule:
+    # Malaysian 4D draws happen on Wed, Sat, Sun.
+    # Results usually posted by ~8pm MYT (UTC+8), so run at 9pm MYT = 1pm UTC.
+    # Cron: minute hour day month weekday
+    - cron: "0 13 * * 0,3,6"   # Sun, Wed, Sat at 9pm MYT
+
+  workflow_dispatch:   # allow manual trigger from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write   # needed to push commits
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 pandas lxml
+
+      - name: Update Sport Toto
+        run: python scraper_sportstoto.py --update
+        continue-on-error: true
+
+      - name: Update Magnum 4D
+        run: python scraper_magnum.py --update
+        continue-on-error: true
+
+      - name: Update Da Ma Cai
+        run: python scraper_damacai.py --update
+        continue-on-error: true
+
+      - name: Sync data → docs/data (for GitHub Pages)
+        run: cp data/*.csv docs/data/
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ docs/data/
+          if git diff --cached --quiet; then
+            echo "No new draws found — nothing to commit."
+          else
+            DATE=$(date -u +"%Y-%m-%d")
+            git commit -m "🎰 Auto-update draw results — $DATE"
+            git push
+          fi
